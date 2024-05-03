@@ -1,6 +1,5 @@
 import psycopg2
 
-# Establish connection to the database
 conn = psycopg2.connect(
     host="localhost",
     database="postgres",
@@ -8,27 +7,38 @@ conn = psycopg2.connect(
     password="JusticeForSaltanat"
 )
 
-# Create a cursor object
 cur = conn.cursor()
 
-# Define the function to insert/update a user
+cur.execute("""
+    CREATE OR REPLACE PROCEDURE insert_update_user(person_name TEXT, phone_number TEXT)
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        IF EXISTS(SELECT 1 FROM your_table WHERE name = person_name) THEN
+            UPDATE your_table SET phone = phone_number WHERE name = person_name;
+            RAISE NOTICE 'User % updated with phone number %', person_name, phone_number;
+        ELSE
+            INSERT INTO your_table (name, phone) VALUES (person_name, phone_number);
+            RAISE NOTICE 'New user % added with phone number %', person_name, phone_number;
+        END IF;
+    END;
+    $$;
+""")
+
+conn.commit()
+
 def insert_update_user(person_name, phone_number):
     try:
-        # Execute the stored procedure using the EXECUTE statement
-        cur.execute('EXECUTE insert_update_user(%s, %s)', (person_name, phone_number))
-        # Commit the transaction
+        cur.callproc('insert_update_user', (person_name, phone_number))
         conn.commit()
         print("User inserted/updated successfully!")
     except psycopg2.DatabaseError as e:
-        # Rollback the transaction in case of an error
         conn.rollback()
         print("Error:", e)
 
-# Example usage
 name = input("Enter name: ")
 number = input("Enter phone number: ")
 insert_update_user(name, number)
 
-# Close cursor and connection
 cur.close()
 conn.close()
